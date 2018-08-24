@@ -1,0 +1,108 @@
+---
+title: "BLCA TCGA Survival Analysis"
+author: "Damiano Fantini"
+date: "August 11, 2018"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+options(warn = -1)
+```
+
+## BLCA_TCGA survival analysis based on Smoking Status
+
+```{r run_01, fig.height=8.5, fig.width=7, fig.align='center'}
+#Install required packages, if needed:
+#install.packages("TCGAretriever")
+#install.packages("survival")
+#install.packages("ggplot2")
+#install.packages("survminer")
+
+# Load packages
+library(TCGAretriever)
+library(ggplot2)
+library(survival)
+library(survminer)
+
+# Load custom functions
+source("https://raw.githubusercontent.com/dami82/urol_oncol_2018/master/urol_oncol_repo.R")
+
+# Get the data, ignore the warning
+case_id <- "blca_tcga_all"
+clin <- get_clinical_data(case_id = case_id)
+
+# Re-encode the smoking status
+# see: https://bit.ly/2M87ORc
+# Then filter data (remove pats with missing smoking status)
+clin$SMOKING_stat <- sapply(clin$TOBACCO_SMOKING_HISTORY_INDICATOR, function(i) {
+  if (i == "1") {"non"}
+  else if (i == "2") {"cur"}
+  else if (i %in% c("3", "4")) {"ref"}
+  else {NA}
+})
+clin <- clin[!is.na(clin$SMOKING_stat),]
+clin$SMOKING_stat <- as.factor(clin$SMOKING_stat)
+
+# Set time vars as numeric
+clin$OS_MONTHS <- as.numeric(clin$OS_MONTHS)
+clin$DFS_MONTHS <- as.numeric(clin$DFS_MONTHS)
+
+# Adjust the data (set a time limit at 60 months, for better visualization)
+clin2 <- clin[clin$OS_STATUS %in% c("LIVING", "DECEASED") & 
+                !is.na(as.numeric(clin$OS_MONTHS)),]
+clin2 <- rescale_surv(clin2, time_col = "OS_MONTHS", 
+                      status_col = "OS_STATUS", 
+                      event_lev = "DECEASED", 
+                      tm_factor = 1, threshold = 60)
+
+clin3 <- clin[clin$DFS_STATUS %in% c("DiseaseFree", "Recurred/Progressed") & 
+                !is.na(as.numeric(clin$DFS_MONTHS)),]
+clin3 <- rescale_surv(clin3, time_col = "DFS_MONTHS", 
+                      status_col = "DFS_STATUS", 
+                      event_lev = "Recurred/Progressed", 
+                      tm_factor = 1, threshold = 60)
+
+# Fit the surv model (Overall Survival)
+fit2 <- survfit(Surv(as.numeric(OS_MONTHS), 
+                     as.integer(OS_STATUS == "DECEASED")) ~ SMOKING_stat,
+               data = clin2)
+
+# Fit the surv model (Disease free survival)
+fit3 <- survfit(Surv(as.numeric(DFS_MONTHS), 
+                     as.integer(DFS_STATUS == "Recurred/Progressed")) ~ SMOKING_stat,
+               data = clin3)
+
+# Plot Overall Survival with survminer
+ggsurvplot(fit2, data = clin2, 
+           risk.table = TRUE, xlim = c(0, 60), 
+           palette = c("#7fc97f", "#fdc086", "#8b4c1c"),
+           xlab = "Months")
+
+ggsurvplot(fit3, data = clin3, risk.table = TRUE, xlim = c(0, 65), 
+           palette = c("#7fc97f", "#fdc086", "#8b4c1c"), 
+           xlab = "Months")
+
+# Compute p-value (current vs non-smookers)
+# https://stat.ethz.ch/pipermail/r-help/2007-April/130676.html
+
+# Overall Survival
+TMP <- clin2[clin2$SMOKING_stat %in% c("non", "cur"),]
+TMP$SMOKING_stat <- factor(TMP$SMOKING_stat, levels = c("non", "cur"))
+log.rank.t <- survdiff(survival::Surv(TMP$OS_MONTHS,
+                                      TMP$OS_STATUS == "DECEASED") ~
+                         TMP$SMOKING_stat)
+p.val <- 1 - pchisq(log.rank.t$chisq, length(log.rank.t$n) - 1)
+p.val 
+
+# Disease-free Survival
+TMP <- clin3[clin3$SMOKING_stat %in% c("non", "cur"),]
+TMP$SMOKING_stat <- factor(TMP$SMOKING_stat, levels = c("non", "cur"))
+log.rank.t <- survdiff(survival::Surv(TMP$DFS_MONTHS,
+                                      TMP$DFS_STATUS == "Recurred/Progressed") ~
+                         TMP$SMOKING_stat)
+p.val <- 1 - pchisq(log.rank.t$chisq, length(log.rank.t$n) - 1)
+p.val 
+```
