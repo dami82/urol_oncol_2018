@@ -6,5 +6,4 @@ Supplementary data - DFantini - Urologic Oncology paper
 # Documents in the folder
 - Vignette ()
 - mutational signatures (BBN_signs.csv) - Mutational signatures extracted from BBN tumors (mouse)
-- mutational signatures ()
-- mutational signatures ()
+- mutational signatures (BLCA_6signs.csv) - Mutational signatures extracted from TCGA tumors (human)
