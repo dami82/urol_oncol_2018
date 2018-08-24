@@ -13,6 +13,7 @@ options(warn = -1)
 ```
 
 ## BLCA_TCGA survival analysis based on Smoking Status
+The output of this vignette is available at: [http://www.data-pulse.com/projects/2018/dfantini_urol_oncol/SSIBC__surv_analysis.html](http://www.data-pulse.com/projects/2018/dfantini_urol_oncol/SSIBC__surv_analysis.html)
 
 ```{r run_01, fig.height=8.5, fig.width=7, fig.align='center'}
 #Install required packages, if needed:
